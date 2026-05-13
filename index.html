@@ -591,6 +591,9 @@ function renderUpload(dni,pagos) {
     +'<button class="btn-ok" id="btn-send" data-dni="'+dni+'" onclick="submitComprobante(this.dataset.dni)" style="width:100%;margin-top:4px;padding:14px;font-size:15px">Enviar comprobante →</button>'
     +'<div id="up-msg" style="display:none;padding:12px 16px;border-radius:8px;font-size:13px;margin-top:12px;line-height:1.5"></div>'
     +'</div>';
+  // Llenar el importe con la cuota que ya viene seleccionada por defecto
+  const defCuota = document.getElementById('up-cuota');
+  if(defCuota) autoFillMonto(defCuota.value);
 }
 function dzDrag(e,on){e.preventDefault();document.getElementById('dz-up').classList.toggle('over',on);}
 function dzDrop(e){e.preventDefault();document.getElementById('dz-up').classList.remove('over');handleUpFile(e.dataTransfer.files[0]);}
