@@ -351,7 +351,7 @@ header{position:relative;z-index:10;background:rgba(10,22,13,.97);border-bottom:
 <script>
 // ═══════════════════════════════════════════════
 //  ▼▼▼  PEGÁ AQUÍ LA URL DE TU APPS SCRIPT  ▼▼▼
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxUwyvDn2vH0LO00MSZ3OiFnEG335T-IMt4dx7wFegTvqKPcJbQiA0HIu2IqRyQhut6zw/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwte-wnqRHaO5bHDIH8XIW_48WDY6bi_p6YT004FpvpKhtLnItzmUS_b-n7XDDUhoSs/exec';
 //  ▲▲▲  PEGÁ AQUÍ LA URL DE TU APPS SCRIPT  ▲▲▲
 // ═══════════════════════════════════════════════
 
@@ -366,7 +366,7 @@ const CUOTAS = [
   {id:'c5',  label:'Cuota 5',mes:'Octubre',    monto:80009},
 ];
 
-const USE_BACKEND = SCRIPT_URL !== 'https://script.google.com/macros/s/AKfycbxUwyvDn2vH0LO00MSZ3OiFnEG335T-IMt4dx7wFegTvqKPcJbQiA0HIu2IqRyQhut6zw/exec' && SCRIPT_URL.startsWith('https://');
+const USE_BACKEND = SCRIPT_URL.startsWith('https://script.google.com/macros/s/') && !SCRIPT_URL.includes('AKfycbxUwyvDn2vH0LO00MSZ3oiF');
 
 // ── Local fallback state ──────────────────────
 let LOCAL = (()=>{
@@ -625,7 +625,7 @@ async function submitComprobante(dni){
     upFile=null;
     showUpMsg('ok','✅ Comprobante enviado correctamente. Quedará pendiente hasta que administración lo confirme.');
     PAGOS=PAGOS.filter(p=>!(p.dni===dni&&p.cuotaId===cuotaId));
-    PAGOS.push({id:res.id||Date.now().toString(),dni,cuotaId,mes:cuota?cuota.mes:'',monto,fecha,estado:'pendiente',fileName:upFile?upFile.name:'',fileId:''});
+    PAGOS.push({id:res.id||Date.now().toString(),dni,cuotaId,mes:cuota?cuota.mes:'',monto,fecha,estado:'pendiente',fileName:res.fileName||'',fileId:res.fileId||''});
     setTimeout(()=>renderCuenta(dni),1200);
   }else{
     btn.disabled=false; btn.textContent='Enviar comprobante →';
@@ -688,7 +688,7 @@ function renderParticipants(){
       +'<td><div style="display:flex;align-items:center;gap:8px"><div class="prog-mini" style="flex:1"><div class="prog-mini-fill" style="width:'+pct.toFixed(0)+'%"></div></div><span style="font-size:11px;color:var(--muted)">'+pct.toFixed(0)+'%</span></div></td>'
       +'<td style="color:var(--accent);font-weight:600">'+fmt(pagado)+'</td>'
       +'<td><span class="sb '+sbCls+'">'+sbTxt+'</span></td>'
-      +'<td><div class="td-actions"><button class="ed-btn" onclick="openEdit(\'+p.dni+\')">Editar</button><button class="dbtn" onclick="delParticipant(\'+p.dni+\')">✕</button></div></td></tr>';
+      +`<td><div class="td-actions"><button class="ed-btn" onclick="openEdit('${p.dni}')">Editar</button><button class="dbtn" onclick="delParticipant('${p.dni}')">✕</button></div></td></tr>`;
   }).join('');
   cont.innerHTML='<table class="ptable"><thead><tr><th>Participante</th><th>Progreso</th><th>Abonado</th><th>Estado</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
@@ -763,15 +763,15 @@ function renderPagosTable(){
     const pt=findPart(p.dni)||{nombre:'—'};
     const c=CUOTAS.find(x=>x.id===p.cuotaId)||{label:p.cuotaId,mes:''};
     const esBadge=p.estado==='pendiente'?'<span class="sb par">⏳ Pendiente</span>':'<span class="sb ok">✅ Aprobado</span>';
-    const compBtn=p.fileId?'<button class="ed-btn" onclick="verComp(\'+p.id+\')">Ver</button>':p.fileData?'<button class="ed-btn" onclick="verComp(\'+p.id+\')">Ver</button>':'<span style="color:var(--muted);font-size:11px">—</span>';
-    const aprobBtn=p.estado==='pendiente'?'<button class="ed-btn" style="color:var(--accent);border-color:var(--accent)" onclick="aprobarPago(\'+p.id+\')">✓ Aprobar</button>':'';
+    const compBtn=p.fileId?`<button class="ed-btn" onclick="verComp('${p.id}')">Ver</button>`:p.fileData?`<button class="ed-btn" onclick="verComp('${p.id}')">Ver</button>`:'<span style="color:var(--muted);font-size:11px">—</span>';
+    const aprobBtn=p.estado==='pendiente'?`<button class="ed-btn" style="color:var(--accent);border-color:var(--accent)" onclick="aprobarPago('${p.id}')">✓ Aprobar</button>`:'';
     return '<tr><td><div class="pname">'+pt.nombre+'</div><div class="pdni">DNI '+p.dni+'</div></td>'
       +'<td><span class="sb ok">'+c.label+'</span></td>'
       +'<td style="color:var(--muted);font-size:12px">'+c.mes+'</td>'
       +'<td style="color:var(--accent);font-weight:600">'+fmt(p.monto)+'</td>'
       +'<td style="color:var(--muted);font-size:12px">'+fmtDate(p.fecha)+'</td>'
       +'<td>'+esBadge+'</td><td>'+compBtn+'</td>'
-      +'<td><div class="td-actions">'+aprobBtn+'<button class="dbtn" onclick="delPago(\'+p.id+\')">✕</button></div></td></tr>';
+      +`<td><div class="td-actions">${aprobBtn}<button class="dbtn" onclick="delPago('${p.id}')">✕</button></div></td></tr>`;
   }).join('');
   cont.innerHTML='<div class="ptable-wrap"><table class="ptable"><thead><tr><th>Nombre</th><th>Cuota</th><th>Mes</th><th>Monto</th><th>Fecha</th><th>Estado</th><th>Comp.</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
