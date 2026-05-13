@@ -291,7 +291,7 @@ header{position:relative;z-index:10;background:rgba(10,22,13,.97);border-bottom:
     <button class="btn-green" onclick="saveBankData()" style="width:100%;justify-content:center;padding:12px">&#x2713; Guardar datos bancarios</button>
     <hr style="border-color:var(--border);margin:20px 0">
     <h4 style="font-family:'Bebas Neue',sans-serif;letter-spacing:1px;margin-bottom:8px">🔐 Contraseña del servidor</h4>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Protege las acciones sensibles (aprobar pagos, agregar participantes, etc). Configurala la primera vez que uses el sistema.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Esta es la contraseña que usás para entrar al panel de admin. Una vez configurada acá, la anterior deja de funcionar.</p>
     <div style="display:grid;gap:8px">
       <input class="fi" type="password" id="pwd-current" placeholder="Contraseña actual (vacío si es la primera vez)">
       <input class="fi" type="password" id="pwd-new" placeholder="Nueva contraseña (mín. 4 caracteres)">
@@ -360,7 +360,7 @@ header{position:relative;z-index:10;background:rgba(10,22,13,.97);border-bottom:
 <script>
 // ═══════════════════════════════════════════════
 //  ▼▼▼  PEGÁ AQUÍ LA URL DE TU APPS SCRIPT  ▼▼▼
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw2CnGH3aT2XyyMX7zN3_WRiauhXiicFoimD-8OxVULAqKaZYXFeqH35g-th2ZJKjZcbw/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxXO1zX1646_3G98KpO_fvYaRxb8xK9bUiuT2AwUYxjc-hrUwQkR5BsawZn2B-xGRtYHw/exec';
 //  ▲▲▲  PEGÁ AQUÍ LA URL DE TU APPS SCRIPT  ▲▲▲
 // ═══════════════════════════════════════════════
 
@@ -693,17 +693,35 @@ function reqAdmin(){
   document.getElementById('pwd-in').value='';
   setTimeout(()=>document.getElementById('pwd-in').focus(),100);
 }
-function chkPwd(){
+async function chkPwd(){
   const v=document.getElementById('pwd-in').value, el=document.getElementById('pwd-in');
-  if(v===PWD){
-    unlocked=true;
-    ADMIN_PWD_SESSION = v; // guardamos en memoria para mandar al servidor
+  if(!v){ el.classList.add('err'); setTimeout(()=>el.classList.remove('err'),500); return; }
+
+  if(!USE_BACKEND){
+    // Sin backend: validar contra contraseña local
+    if(v===PWD){
+      unlocked=true; ADMIN_PWD_SESSION=v;
+      document.getElementById('ov-pwd').classList.remove('on');
+      document.getElementById('setup-banner').style.display='block';
+      showView('admin'); renderAdmin(); toast('✅ Acceso concedido','ok');
+    } else {
+      el.classList.add('err'); setTimeout(()=>el.classList.remove('err'),500);
+      toast('❌ Contraseña incorrecta','er');
+    }
+    return;
+  }
+
+  // Con backend: validar contra el servidor
+  el.disabled=true;
+  const res = await api('checkAdminPwd', {adminPwd: v});
+  el.disabled=false;
+  if(res.ok){
+    unlocked=true; ADMIN_PWD_SESSION=v;
     document.getElementById('ov-pwd').classList.remove('on');
-    if(!USE_BACKEND) document.getElementById('setup-banner').style.display='block';
     showView('admin'); renderAdmin(); toast('✅ Acceso concedido','ok');
-  }else{
+  } else {
     el.classList.add('err'); setTimeout(()=>el.classList.remove('err'),500);
-    toast('❌ Contraseña incorrecta','er');
+    toast('❌ '+(res.error||'Contraseña incorrecta'),'er');
   }
 }
 
