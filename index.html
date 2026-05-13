@@ -351,7 +351,7 @@ header{position:relative;z-index:10;background:rgba(10,22,13,.97);border-bottom:
 <script>
 // ═══════════════════════════════════════════════
 //  ▼▼▼  PEGÁ AQUÍ LA URL DE TU APPS SCRIPT  ▼▼▼
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyz8gnnhD-CtZ894YoCIGdtnJRfG3lwWJLugN6VQvw8hqeo3LvqZ4fnSulogeO3sCFOHQ/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz3jvS1QikaIfFNQjGj3qD8XHJ_Dh2zarCnTyCiAdS0IC4ZwsWDULK83FEh7VKRznKjyw/exec';
 //  ▲▲▲  PEGÁ AQUÍ LA URL DE TU APPS SCRIPT  ▲▲▲
 // ═══════════════════════════════════════════════
 
@@ -383,12 +383,11 @@ async function api(action, params={}) {
     return localApi(action, params);
   }
   try {
-    // Todo va por POST con text/plain para evitar el problema de CORS/redirect de Apps Script
-    const r = await fetch(SCRIPT_URL, {
-      method:'POST',
-      redirect:'follow',
-      headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({action, ...params})
+    // Usamos GET con el payload en un query param para evitar el CORS preflight
+    // Apps Script acepta esto sin problemas de redirect
+    const payload = encodeURIComponent(JSON.stringify({action, ...params}));
+    const r = await fetch(SCRIPT_URL + '?payload=' + payload, {
+      redirect: 'follow'
     });
     return await r.json();
   } catch(e) {
