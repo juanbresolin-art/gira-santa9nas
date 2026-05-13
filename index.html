@@ -687,12 +687,21 @@ function showUpMsg(type,txt){
 }
 
 // ── Admin ─────────────────────────────────────
-function reqAdmin(){
-  if(unlocked){showView('admin');renderAdmin();return;}
-  document.getElementById('ov-pwd').classList.add('on');
-  document.getElementById('pwd-in').value='';
-  setTimeout(()=>document.getElementById('pwd-in').focus(),100);
+let _adminTaps=0, _adminTimer=null;
+function adminTap(){
+  _adminTaps++;
+  clearTimeout(_adminTimer);
+  if(_adminTaps>=5){
+    _adminTaps=0;
+    if(unlocked){showView('admin');renderAdmin();return;}
+    document.getElementById('ov-pwd').classList.add('on');
+    document.getElementById('pwd-in').value='';
+    setTimeout(()=>document.getElementById('pwd-in').focus(),100);
+  } else {
+    _adminTimer=setTimeout(()=>{ _adminTaps=0; },1500);
+  }
 }
+function reqAdmin(){ adminTap(); }
 async function chkPwd(){
   const v=document.getElementById('pwd-in').value, el=document.getElementById('pwd-in');
   if(!v){ el.classList.add('err'); setTimeout(()=>el.classList.remove('err'),500); return; }
