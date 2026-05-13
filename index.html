@@ -383,22 +383,12 @@ async function api(action, params={}) {
     return localApi(action, params);
   }
   try {
-    const body = JSON.stringify({action, ...params});
-    // Si hay fileData usamos POST (el payload base64 es demasiado grande para GET)
-    const hasFile = !!params.fileData;
-    let r;
-    if(hasFile) {
-      r = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: body,
-        redirect: 'follow'
-      });
-    } else {
-      const payload = encodeURIComponent(body);
-      r = await fetch(SCRIPT_URL + '?payload=' + payload, {
-        redirect: 'follow'
-      });
-    }
+    // Usamos GET con el payload en un query param para evitar el CORS preflight
+    // Apps Script acepta esto sin problemas de redirect
+    const payload = encodeURIComponent(JSON.stringify({action, ...params}));
+    const r = await fetch(SCRIPT_URL + '?payload=' + payload, {
+      redirect: 'follow'
+    });
     return await r.json();
   } catch(e) {
     return {ok:false, error:e.toString()};
@@ -451,7 +441,24 @@ function localApi(action, p) {
 
 // ── Helpers ───────────────────────────────────
 const fmt     = n => '$' + Math.round(n).toLocaleString('es-AR');
-const fmtDate = d => { if(!d) return ''; const p=String(d).split('T')[0].split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
+const fmtDate = d => {
+  if(!d) return '';
+  const s = String(d);
+  // ISO format: "2025-05-13" or "2025-05-13T..."
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const p = s.split('T')[0].split('-');
+    return p[2]+'/'+p[1]+'/'+p[0];
+  }
+  // Date string from GAS (e.g. "Wed May 13 2025 00:00:00 GMT-0300")
+  const dt = new Date(s);
+  if(!isNaN(dt)) {
+    const dd = String(dt.getDate()).padStart(2,'0');
+    const mm = String(dt.getMonth()+1).padStart(2,'0');
+    const yy = dt.getFullYear();
+    return dd+'/'+mm+'/'+yy;
+  }
+  return s;
+};
 const fmtSz   = b => b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';
 // El "9" al final del monto es solo identificatorio en el banco; para cálculos se ignora.
 const montoReal = m => { const n=Number(m); return (n%10===9) ? n-9 : n; };
@@ -574,8 +581,8 @@ function renderUpload(dni,pagos) {
   el.innerHTML='<div class="upload-card">'
     +'<div class="upload-card-title">📤 Subir comprobante de pago</div>'
     +'<div class="upload-inner">'
-    +'<div class="ufield"><label>Cuota a acreditar</label><select id="up-cuota" class="fi">'+opts+'</select></div>'
-    +'<div class="ufield"><label>Importe transferido ($)</label><input type="text" id="up-monto" class="fi" placeholder="Ej: 100009"></div>'
+    +'<div class="ufield"><label>Cuota a acreditar</label><select id="up-cuota" class="fi" onchange="autoFillMonto(this.value)">'+opts+'</select></div>'
+    +'<div class="ufield"><label>Importe transferido ($)</label><input type="text" id="up-monto" class="fi" placeholder="Ej: 100009" oninput="this.dataset.userEdited=1"></div>'
     +'<div class="ufield"><label>Fecha de transferencia</label><input type="date" id="up-fecha" class="fi" value="'+new Date().toISOString().slice(0,10)+'"></div>'
     +'<div class="ufield" style="grid-column:1/-1"><label>Comprobante (imagen o PDF, máx 10 MB)</label>'
     +'<div class="dz" id="dz-up" ondragover="dzDrag(event,true)" ondragleave="dzDrag(event,false)" ondrop="dzDrop(event)">📎 Hacé clic o arrastrá el archivo aquí<input type="file" id="fi-up" accept="image/*,.pdf" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleUpFile(this.files[0])"></div>'
@@ -603,6 +610,15 @@ function rmUpFile(){
   document.getElementById('fprev-up').classList.remove('on');
   document.getElementById('dz-up').style.display='';
 }
+function autoFillMonto(cuotaId) {
+  const cuota = CUOTAS.find(c => c.id === cuotaId);
+  if(!cuota) return;
+  const input = document.getElementById('up-monto');
+  if(input && !input.dataset.userEdited) {
+    input.value = cuota.monto;
+  }
+}
+
 async function submitComprobante(dni){
   const cuotaId=document.getElementById('up-cuota')?.value;
   const monto=parseInt((document.getElementById('up-monto')?.value||'').replace(/\D/g,''));
