@@ -383,9 +383,17 @@ async function api(action, params={}) {
     return localApi(action, params);
   }
   try {
-    // Usamos GET con el payload en un query param para evitar el CORS preflight
-    // Apps Script acepta esto sin problemas de redirect
-    const payload = encodeURIComponent(JSON.stringify({action, ...params}));
+    const body = JSON.stringify({action, ...params});
+    // Si hay fileData usamos POST (base64 demasiado grande para GET)
+    if(params.fileData) {
+      const r = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: body,
+        redirect: 'follow'
+      });
+      return await r.json();
+    }
+    const payload = encodeURIComponent(body);
     const r = await fetch(SCRIPT_URL + '?payload=' + payload, {
       redirect: 'follow'
     });
