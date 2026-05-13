@@ -508,7 +508,6 @@ const getTotalPagado = dni => getPagos(dni).reduce((a,p)=>a+montoReal(p.monto),0
 function showView(v) {
   ['dni','cuenta','admin'].forEach(x=>document.getElementById('v-'+x).classList.remove('on'));
   document.getElementById('v-'+v).classList.add('on');
-  document.getElementById('admin-toggle-btn').classList.toggle('on',v==='admin');
 }
 function goBack()  { document.getElementById('dni-in').value=''; document.getElementById('dni-err').textContent=''; currentDni=null; showView('dni'); }
 function goToUser(){ if(currentDni) showView('cuenta'); else showView('dni'); }
