@@ -289,6 +289,15 @@ header{position:relative;z-index:10;background:rgba(10,22,13,.97);border-bottom:
     </div>
     <div class="bfield" style="margin-bottom:14px"><label>Nota</label><input type="text" class="fi" id="bank-nota" placeholder="Indicar DNI en el concepto de la transferencia"></div>
     <button class="btn-green" onclick="saveBankData()" style="width:100%;justify-content:center;padding:12px">&#x2713; Guardar datos bancarios</button>
+    <hr style="border-color:var(--border);margin:20px 0">
+    <h4 style="font-family:'Bebas Neue',sans-serif;letter-spacing:1px;margin-bottom:8px">🔐 Contraseña del servidor</h4>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Protege las acciones sensibles (aprobar pagos, agregar participantes, etc). Configurala la primera vez que uses el sistema.</p>
+    <div style="display:grid;gap:8px">
+      <input class="fi" type="password" id="pwd-current" placeholder="Contraseña actual (vacío si es la primera vez)">
+      <input class="fi" type="password" id="pwd-new" placeholder="Nueva contraseña (mín. 4 caracteres)">
+      <input class="fi" type="password" id="pwd-confirm" placeholder="Repetir nueva contraseña">
+      <button class="btn-ok" onclick="changeServerPwd()" style="width:100%">🔐 Guardar contraseña del servidor</button>
+    </div>
   </div>
   <div class="panel">
     <h3>&#x1F4C4; Todos los pagos</h3>
@@ -351,11 +360,11 @@ header{position:relative;z-index:10;background:rgba(10,22,13,.97);border-bottom:
 <script>
 // ═══════════════════════════════════════════════
 //  ▼▼▼  PEGÁ AQUÍ LA URL DE TU APPS SCRIPT  ▼▼▼
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxCb2i7PZvGQAEoX0Cr5GxOUjrh5g5v3oZbBZkme5WCelFCwDrItai1-xICZXQ5DsTU/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw2CnGH3aT2XyyMX7zN3_WRiauhXiicFoimD-8OxVULAqKaZYXFeqH35g-th2ZJKjZcbw/exec';
 //  ▲▲▲  PEGÁ AQUÍ LA URL DE TU APPS SCRIPT  ▲▲▲
 // ═══════════════════════════════════════════════
 
-const PWD   = 'santa9nas';
+const PWD   = 'santa9nas'; // contraseña LOCAL para abrir el panel (no protege el servidor)
 const TOTAL = 500000;
 const CUOTAS = [
   {id:'sena',label:'Seña',   mes:'Mayo',       monto:100009},
@@ -376,8 +385,14 @@ let LOCAL = (()=>{
 const saveLocal = ()=> localStorage.setItem('santa9nas_local', JSON.stringify(LOCAL));
 
 let unlocked=false, currentDni=null;
+let ADMIN_PWD_SESSION=''; // contraseña en memoria, se limpia al recargar
 
 // ── API ───────────────────────────────────────
+// Wrapper para acciones de admin: agrega la contraseña del servidor automáticamente
+async function adminApi(action, params={}) {
+  return api(action, {...params, adminPwd: ADMIN_PWD_SESSION});
+}
+
 async function api(action, params={}) {
   if(!USE_BACKEND) {
     return localApi(action, params);
@@ -681,7 +696,9 @@ function reqAdmin(){
 function chkPwd(){
   const v=document.getElementById('pwd-in').value, el=document.getElementById('pwd-in');
   if(v===PWD){
-    unlocked=true; document.getElementById('ov-pwd').classList.remove('on');
+    unlocked=true;
+    ADMIN_PWD_SESSION = v; // guardamos en memoria para mandar al servidor
+    document.getElementById('ov-pwd').classList.remove('on');
     if(!USE_BACKEND) document.getElementById('setup-banner').style.display='block';
     showView('admin'); renderAdmin(); toast('✅ Acceso concedido','ok');
   }else{
@@ -700,7 +717,7 @@ async function addParticipant(){
   const nom=document.getElementById('new-nombre').value.trim();
   if(!dni||!nom){toast('Completá DNI y nombre','er');return;}
   if(!/^\d{7,10}$/.test(dni)){toast('DNI inválido','er');return;}
-  const res=await api('addParticipant',{dni,nombre:nom});
+  const res=await adminApi('addParticipant',{dni,nombre:nom});
   if(res.ok){
     document.getElementById('new-dni').value=''; document.getElementById('new-nombre').value='';
     await renderAdmin(); toast('✅ '+nom+' agregado','ok');
@@ -738,14 +755,14 @@ async function doEdit(){
   const nn=document.getElementById('edit-nombre').value.trim();
   if(!nd||!nn){toast('Completá todos los campos','er');return;}
   if(!/^\d{7,10}$/.test(nd)){toast('DNI inválido','er');return;}
-  const res=await api('editParticipant',{origDni:orig,dni:nd,nombre:nn});
+  const res=await adminApi('editParticipant',{origDni:orig,dni:nd,nombre:nn});
   if(res.ok){ if(currentDni===orig) currentDni=nd; closeOvl('ov-edit'); await renderAdmin(); toast('✅ Actualizado','ok'); }
   else toast('❌ '+(res.error||'Error'),'er');
 }
 async function delParticipant(dni){
   const p=findPart(dni); if(!p)return;
   if(!confirm('¿Eliminar a '+p.nombre+'? También se eliminarán sus pagos.'))return;
-  const res=await api('delParticipant',{dni});
+  const res=await adminApi('delParticipant',{dni});
   if(res.ok){ await renderAdmin(); toast('🗑 Eliminado','ok'); }
   else toast('❌ Error','er');
 }
@@ -813,14 +830,14 @@ async function aprobarPago(id){
   const pt=findPart(p.dni)||{nombre:p.dni};
   const c=CUOTAS.find(x=>x.id===p.cuotaId)||{label:p.cuotaId};
   if(!confirm('¿Aprobar el comprobante de '+pt.nombre+' para '+c.label+'?'))return;
-  const res=await api('aprobarPago',{id});
+  const res=await adminApi('aprobarPago',{id});
   if(res.ok){ p.estado='aprobado'; renderPagosTable(); toast('✅ Aprobado — '+pt.nombre+' / '+c.label,'ok'); }
   else toast('❌ '+(res.error||'Error'),'er');
 }
 
 async function delPago(id){
   if(!confirm('¿Eliminar este pago?'))return;
-  const res=await api('delPago',{id});
+  const res=await adminApi('delPago',{id});
   if(res.ok){ PAGOS=PAGOS.filter(p=>p.id!==id); renderPagosTable(); toast('🗑 Eliminado','ok'); }
   else toast('❌ Error','er');
 }
@@ -878,10 +895,26 @@ function loadBankFields(){
   const b=BANK||{};
   ['nombre','titular','cbu','alias','tipo','cuit','nota'].forEach(k=>{const el=document.getElementById('bank-'+k);if(el)el.value=b[k]||'';});
 }
+async function changeServerPwd(){
+  const current = document.getElementById('pwd-current').value;
+  const newPwd  = document.getElementById('pwd-new').value;
+  const confirm = document.getElementById('pwd-confirm').value;
+  if(!newPwd || newPwd.length < 4){ toast('La contraseña debe tener al menos 4 caracteres','er'); return; }
+  if(newPwd !== confirm){ toast('Las contraseñas no coinciden','er'); return; }
+  const res = await api('setAdminPwd', {currentPwd: current, newPwd, adminPwd: current});
+  if(res.ok){
+    ADMIN_PWD_SESSION = newPwd;
+    toast('✅ Contraseña del servidor actualizada','ok');
+    ['pwd-current','pwd-new','pwd-confirm'].forEach(id => document.getElementById(id).value='');
+  } else {
+    toast('❌ '+(res.error||'Error al cambiar contraseña'),'er');
+  }
+}
+
 async function saveBankData(){
   const cfg={};
   ['nombre','titular','cbu','alias','tipo','cuit','nota'].forEach(k=>{cfg[k]=document.getElementById('bank-'+k).value.trim();});
-  const res=await api('saveConfig',{config:cfg});
+  const res=await adminApi('saveConfig',{config:cfg});
   if(res.ok){ BANK=cfg; toast('✅ Datos bancarios guardados','ok'); }
   else toast('❌ Error al guardar','er');
 }
