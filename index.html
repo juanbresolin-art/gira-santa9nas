@@ -351,7 +351,7 @@ header{position:relative;z-index:10;background:rgba(10,22,13,.97);border-bottom:
 <script>
 // ═══════════════════════════════════════════════
 //  ▼▼▼  PEGÁ AQUÍ LA URL DE TU APPS SCRIPT  ▼▼▼
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwte-wnqRHaO5bHDIH8XIW_48WDY6bi_p6YT004FpvpKhtLnItzmUS_b-n7XDDUhoSs/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyz8gnnhD-CtZ894YoCIGdtnJRfG3lwWJLugN6VQvw8hqeo3LvqZ4fnSulogeO3sCFOHQ/exec';
 //  ▲▲▲  PEGÁ AQUÍ LA URL DE TU APPS SCRIPT  ▲▲▲
 // ═══════════════════════════════════════════════
 
@@ -366,7 +366,7 @@ const CUOTAS = [
   {id:'c5',  label:'Cuota 5',mes:'Octubre',    monto:80009},
 ];
 
-const USE_BACKEND = SCRIPT_URL.startsWith('https://script.google.com/macros/s/') && !SCRIPT_URL.includes('AKfycbxUwyvDn2vH0LO00MSZ3oiF');
+const USE_BACKEND = SCRIPT_URL.startsWith('https://script.google.com/macros/s/') && SCRIPT_URL.length > 80;
 
 // ── Local fallback state ──────────────────────
 let LOCAL = (()=>{
@@ -383,20 +383,14 @@ async function api(action, params={}) {
     return localApi(action, params);
   }
   try {
-    if(['getParticipants','getPagos','getConfig'].includes(action)) {
-      const url = new URL(SCRIPT_URL);
-      url.searchParams.set('action', action);
-      if(params.dni) url.searchParams.set('dni', params.dni);
-      const r = await fetch(url.toString());
-      return await r.json();
-    } else {
-      const r = await fetch(SCRIPT_URL, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({action, ...params})
-      });
-      return await r.json();
-    }
+    // Todo va por POST con text/plain para evitar el problema de CORS/redirect de Apps Script
+    const r = await fetch(SCRIPT_URL, {
+      method:'POST',
+      redirect:'follow',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({action, ...params})
+    });
+    return await r.json();
   } catch(e) {
     return {ok:false, error:e.toString()};
   }
