@@ -466,7 +466,7 @@ function localApi(action, p) {
 const fmt     = n => '$' + Math.round(n).toLocaleString('es-AR');
 const fmtDate = d => {
   if(!d) return '';
-  const s = String(d);
+  const s = String(d).trim();
   // ISO format: "2025-05-13" or "2025-05-13T..."
   if(/^\d{4}-\d{2}-\d{2}/.test(s)) {
     const p = s.split('T')[0].split('-');
@@ -480,12 +480,23 @@ const fmtDate = d => {
     const dd = String(gasDate[3]).padStart(2,'0');
     return dd+'/'+mm+'/'+yy;
   }
-  // Date string from GAS (e.g. "Wed May 13 2026 00:00:00 GMT-0300")
+  // Numeric serial (Google Sheets days since 1899-12-30)
+  if(/^\d+(\.\d+)?$/.test(s)) {
+    const serial = Math.floor(Number(s));
+    const epoch = new Date(1899, 11, 30);
+    epoch.setDate(epoch.getDate() + serial);
+    const dd = String(epoch.getDate()).padStart(2,'0');
+    const mm = String(epoch.getMonth()+1).padStart(2,'0');
+    const yy = epoch.getFullYear();
+    return dd+'/'+mm+'/'+yy;
+  }
+  // Date string — parse but use UTC to avoid timezone shift
   const dt = new Date(s);
   if(!isNaN(dt)) {
-    const dd = String(dt.getDate()).padStart(2,'0');
-    const mm = String(dt.getMonth()+1).padStart(2,'0');
-    const yy = dt.getFullYear();
+    // Use UTC values to avoid timezone shifting the date
+    const dd = String(dt.getUTCDate()).padStart(2,'0');
+    const mm = String(dt.getUTCMonth()+1).padStart(2,'0');
+    const yy = dt.getUTCFullYear();
     return dd+'/'+mm+'/'+yy;
   }
   return s;
@@ -1003,7 +1014,12 @@ function toast(msg,type='ok'){
 
 // Acceso admin directo por URL: tudominio.com/?admin
 if(location.search.includes('admin') || location.hash==='#admin'){
-  setTimeout(()=>reqAdmin(), 400);
+  setTimeout(()=>{
+    if(unlocked){ showView('admin'); renderAdmin(); return; }
+    document.getElementById('ov-pwd').classList.add('on');
+    document.getElementById('pwd-in').value='';
+    setTimeout(()=>document.getElementById('pwd-in').focus(),100);
+  }, 400);
 }
 </script>
 </body>
