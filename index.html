@@ -472,7 +472,15 @@ const fmtDate = d => {
     const p = s.split('T')[0].split('-');
     return p[2]+'/'+p[1]+'/'+p[0];
   }
-  // Date string from GAS (e.g. "Wed May 13 2025 00:00:00 GMT-0300")
+  // Google Sheets serial: "Date(2026,4,13)" — mes es 0-based
+  const gasDate = s.match(/^Date\((\d+),(\d+),(\d+)\)$/);
+  if(gasDate) {
+    const yy = gasDate[1];
+    const mm = String(Number(gasDate[2])+1).padStart(2,'0');
+    const dd = String(gasDate[3]).padStart(2,'0');
+    return dd+'/'+mm+'/'+yy;
+  }
+  // Date string from GAS (e.g. "Wed May 13 2026 00:00:00 GMT-0300")
   const dt = new Date(s);
   if(!isNaN(dt)) {
     const dd = String(dt.getDate()).padStart(2,'0');
@@ -991,6 +999,11 @@ function toast(msg,type='ok'){
   const el=document.getElementById('toast');
   el.textContent=msg;el.className='toast on '+type;
   clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('on'),3500);
+}
+
+// Acceso admin directo por URL: tudominio.com/?admin
+if(location.search.includes('admin') || location.hash==='#admin'){
+  setTimeout(()=>reqAdmin(), 400);
 }
 </script>
 </body>
