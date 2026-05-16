@@ -107,6 +107,12 @@ header{position:relative;z-index:10;background:rgba(10,22,13,.97);border-bottom:
 .fprev{display:none;align-items:center;gap:10px;margin-top:8px;background:rgba(61,220,110,.07);border:1px solid rgba(61,220,110,.25);border-radius:8px;padding:10px 14px}
 .fprev.on{display:flex}
 .upload-done{background:rgba(61,220,110,.08);border:1px solid rgba(61,220,110,.25);border-radius:12px;padding:18px 22px;font-size:14px;font-weight:500;color:var(--accent)}
+/* BONOS */
+.bonos-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:8px}
+.bonos-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.bonos-img{width:100%;border-radius:10px;display:block;cursor:pointer}
+.bonos-loading{color:var(--muted);font-size:13px;padding:12px 0}
+
 /* ADMIN */
 .admin-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:32px;flex-wrap:wrap}
 .admin-hdr h2{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:1px}
@@ -234,6 +240,7 @@ header{position:relative;z-index:10;background:rgba(10,22,13,.97);border-bottom:
     <h3>&#x1F3D1; &iexcl;Todo pago!</h3>
     <p>Completaste los 6 pagos del viaje. &iexcl;Nos vemos en la gira!</p>
   </div>
+  <div id="bonos-section" style="margin-bottom:28px"></div>
   <div id="bank-block" style="display:none;margin-bottom:28px"></div>
   <div id="upload-section" style="margin-bottom:32px"></div>
   <div class="tl-title">Detalle de cuotas</div>
@@ -653,7 +660,23 @@ function rmUpFile(){
   upFile=null;document.getElementById('fi-up').value='';
   document.getElementById('fprev-up').classList.remove('on');
   document.getElementById('dz-up').style.display='';
+  // Cargar bono si existe
+  loadBono(dni);
 }
+
+async function loadBono(dni) {
+  const sec = document.getElementById('bonos-section');
+  if(!sec) return;
+  if(!USE_BACKEND){ sec.innerHTML=''; return; }
+  sec.innerHTML = '<div class="bonos-loading">🎟 Cargando bonos...</div>';
+  const res = await api('getBono', {dni});
+  if(!res.ok || !res.url) { sec.innerHTML=''; return; }
+  const imgEl = `<img class="bonos-img" src="${res.url}" alt="Bono ${dni}"
+    onclick="window.open(this.src,'_blank')"
+    onerror="this.closest('.bonos-card').remove()">`;
+  sec.innerHTML = `<div class="bonos-card"><div class="bonos-title">🎟 Tus Bonos</div>${imgEl}</div>`;
+}
+
 function autoFillMonto(cuotaId) {
   const cuota = CUOTAS.find(c => c.id === cuotaId);
   if(!cuota) return;
