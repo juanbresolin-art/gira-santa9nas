@@ -671,10 +671,17 @@ async function loadBono(dni) {
   sec.innerHTML = '<div class="bonos-loading">🎟 Cargando bonos...</div>';
   const res = await api('getBono', {dni});
   if(!res.ok || !res.url) { sec.innerHTML=''; return; }
-  const imgEl = `<img class="bonos-img" src="${res.url}" alt="Bono ${dni}"
-    onclick="window.open(this.src,'_blank')"
-    onerror="this.closest('.bonos-card').remove()">`;
-  sec.innerHTML = `<div class="bonos-card"><div class="bonos-title">🎟 Tus Bonos</div>${imgEl}</div>`;
+  // Extraer el fileId y usar URL de thumbnail que sí funciona para embeber
+  const fileId = res.url.match(/id=([^&]+)/)?.[1];
+  if(!fileId) { sec.innerHTML=''; return; }
+  const thumbUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+  const openUrl  = `https://drive.google.com/file/d/${fileId}/view`;
+  sec.innerHTML = `<div class="bonos-card">
+    <div class="bonos-title">🎟 Tus Bonos</div>
+    <img class="bonos-img" src="${thumbUrl}" alt="Bono ${dni}"
+      onclick="window.open('${openUrl}','_blank')"
+      onerror="this.parentElement.innerHTML='<p style=color:var(--muted);font-size:13px>No se pudo cargar la imagen. <a href=${openUrl} target=_blank>Ver en Drive</a></p>'">
+  </div>`;
 }
 
 function autoFillMonto(cuotaId) {
