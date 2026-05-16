@@ -511,6 +511,13 @@ const fmtDate = d => {
 const fmtSz   = b => b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';
 // El "9" al final del monto es solo identificatorio en el banco; para cálculos se ignora.
 const montoReal = m => { const n=Number(m); return (n%10===9) ? n-9 : n; };
+// Fecha local en formato YYYY-MM-DD (evita el desfase UTC)
+const localDateStr = (d=new Date()) => {
+  const yy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${yy}-${mm}-${dd}`;
+};
 
 // ── In-memory cache ───────────────────────────
 let PARTS=[], PAGOS=[], BANK={};
@@ -633,7 +640,7 @@ function renderUpload(dni,pagos) {
     +'<div class="upload-inner">'
     +'<div class="ufield"><label>Cuota a acreditar</label><select id="up-cuota" class="fi" onchange="autoFillMonto(this.value)">'+opts+'</select></div>'
     +'<div class="ufield"><label>Importe transferido ($)</label><input type="text" id="up-monto" class="fi" placeholder="Ej: 100009" oninput="this.dataset.userEdited=1"></div>'
-    +'<div class="ufield"><label>Fecha de transferencia</label><input type="date" id="up-fecha" class="fi" value="'+new Date().toISOString().slice(0,10)+'"></div>'
+    +'<div class="ufield"><label>Fecha de transferencia</label><input type="date" id="up-fecha" class="fi" value="'+localDateStr()+'"></div>'
     +'<div class="ufield" style="grid-column:1/-1"><label>Comprobante (imagen o PDF, máx 10 MB)</label>'
     +'<div class="dz" id="dz-up" ondragover="dzDrag(event,true)" ondragleave="dzDrag(event,false)" ondrop="dzDrop(event)">📎 Hacé clic o arrastrá el archivo aquí<input type="file" id="fi-up" accept="image/*,.pdf" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleUpFile(this.files[0])"></div>'
     +'<div class="fprev" id="fprev-up"><span id="fpi-up">🖼️</span><div style="flex:1;min-width:0"><div id="fpn-up" style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div id="fps-up" style="font-size:11px;color:var(--muted);margin-top:2px"></div></div><button onclick="rmUpFile()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px">✕</button></div>'
@@ -857,7 +864,7 @@ function renderSelects(){
   document.getElementById('reg-dni-sel').innerHTML='<option value="">Participante...</option>'+PARTS.map(p=>'<option value="'+p.dni+'">'+p.nombre+' — '+p.dni+'</option>').join('');
   document.getElementById('reg-cuota-sel').innerHTML='<option value="">Cuota...</option>'+CUOTAS.map(c=>'<option value="'+c.id+'">'+c.label+' ('+c.mes+')</option>').join('');
   document.getElementById('srch-cuota').innerHTML='<option value="">Todas las cuotas</option>'+CUOTAS.map(c=>'<option value="'+c.id+'">'+c.label+' — '+c.mes+'</option>').join('');
-  if(!document.getElementById('reg-fecha').value) document.getElementById('reg-fecha').value=new Date().toISOString().slice(0,10);
+  if(!document.getElementById('reg-fecha').value) document.getElementById('reg-fecha').value=localDateStr();
 }
 
 function openRegPago(){
@@ -870,7 +877,7 @@ function openRegPago(){
   document.getElementById('reg-nombre-show').textContent=part.nombre+' — DNI '+dni;
   document.getElementById('reg-cuota-show').textContent=cuota.label+' ('+cuota.mes+')';
   document.getElementById('reg-monto-modal').value=document.getElementById('reg-monto').value||cuota.monto;
-  document.getElementById('reg-fecha-modal').value=document.getElementById('reg-fecha').value||new Date().toISOString().slice(0,10);
+  document.getElementById('reg-fecha-modal').value=document.getElementById('reg-fecha').value||localDateStr();
   document.getElementById('ov-reg').classList.add('on');
 }
 async function doRegPago(){
@@ -1024,7 +1031,7 @@ async function doExport(){
     row.push(total); row.push(Math.max(0,TOTAL-total)); r2.push(row);
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(r2),'Resumen');
-  XLSX.writeFile(wb,'gira_santa9nas_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  XLSX.writeFile(wb,'gira_santa9nas_'+localDateStr()+'.xlsx');
   toast('✅ Excel exportado','ok');
 }
 
