@@ -314,6 +314,7 @@ header{position:relative;z-index:10;background:rgba(10,22,13,.97);border-bottom:
       <button class="btn-green" onclick="doExport()">&#x2B07; Excel</button>
     </div>
     <div id="pagos-table-cont"></div>
+    <div id="faltantes-cont" style="margin-top:24px"></div>
   </div>
 </div>
 
@@ -895,27 +896,53 @@ async function doRegPago(){
 function renderPagosTable(){
   const srch=(document.getElementById('srch').value||'').toLowerCase();
   const cf=document.getElementById('srch-cuota').value;
+  const cont=document.getElementById('pagos-table-cont');
+  const faltCont=document.getElementById('faltantes-cont');
+
+  // ── Tabla de pagos registrados ──
   let pagos=[...PAGOS];
   if(srch) pagos=pagos.filter(p=>{const pt=findPart(p.dni); return p.dni.includes(srch)||(pt&&pt.nombre.toLowerCase().includes(srch));});
   if(cf) pagos=pagos.filter(p=>p.cuotaId===cf);
   pagos.sort((a,b)=>(b.ts||0)>(a.ts||0)?1:-1);
-  const cont=document.getElementById('pagos-table-cont');
-  if(!pagos.length){cont.innerHTML='<div class="p-empty">Sin resultados.</div>';return;}
-  const rows=pagos.map(p=>{
-    const pt=findPart(p.dni)||{nombre:'—'};
-    const c=CUOTAS.find(x=>x.id===p.cuotaId)||{label:p.cuotaId,mes:''};
-    const esBadge=p.estado==='pendiente'?'<span class="sb par">⏳ Pendiente</span>':'<span class="sb ok">✅ Aprobado</span>';
-    const compBtn=p.fileId?`<button class="ed-btn" onclick="verComp('${p.id}')">Ver</button>`:p.fileData?`<button class="ed-btn" onclick="verComp('${p.id}')">Ver</button>`:'<span style="color:var(--muted);font-size:11px">—</span>';
-    const aprobBtn=p.estado==='pendiente'?`<button class="ed-btn" style="color:var(--accent);border-color:var(--accent)" onclick="aprobarPago('${p.id}')">✓ Aprobar</button>`:'';
-    return '<tr><td><div class="pname">'+pt.nombre+'</div><div class="pdni">DNI '+p.dni+'</div></td>'
-      +'<td><span class="sb ok">'+c.label+'</span></td>'
-      +'<td style="color:var(--muted);font-size:12px">'+c.mes+'</td>'
-      +'<td style="color:var(--accent);font-weight:600">'+fmt(p.monto)+'</td>'
-      +'<td style="color:var(--muted);font-size:12px">'+fmtDate(p.fecha)+'</td>'
-      +'<td>'+esBadge+'</td><td>'+compBtn+'</td>'
-      +`<td><div class="td-actions">${aprobBtn}<button class="dbtn" onclick="delPago('${p.id}')">✕</button></div></td></tr>`;
-  }).join('');
-  cont.innerHTML='<div class="ptable-wrap"><table class="ptable"><thead><tr><th>Nombre</th><th>Cuota</th><th>Mes</th><th>Monto</th><th>Fecha</th><th>Estado</th><th>Comp.</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+
+  if(!pagos.length){
+    cont.innerHTML='<div class="p-empty">Sin resultados.</div>';
+  } else {
+    const rows=pagos.map(p=>{
+      const pt=findPart(p.dni)||{nombre:'—'};
+      const c=CUOTAS.find(x=>x.id===p.cuotaId)||{label:p.cuotaId,mes:''};
+      const esBadge=p.estado==='pendiente'?'<span class="sb par">⏳ Pendiente</span>':'<span class="sb ok">✅ Aprobado</span>';
+      const compBtn=p.fileId?`<button class="ed-btn" onclick="verComp('${p.id}')">Ver</button>`:p.fileData?`<button class="ed-btn" onclick="verComp('${p.id}')">Ver</button>`:'<span style="color:var(--muted);font-size:11px">—</span>';
+      const aprobBtn=p.estado==='pendiente'?`<button class="ed-btn" style="color:var(--accent);border-color:var(--accent)" onclick="aprobarPago('${p.id}')">✓ Aprobar</button>`:'';
+      return '<tr><td><div class="pname">'+pt.nombre+'</div><div class="pdni">DNI '+p.dni+'</div></td>'
+        +'<td><span class="sb ok">'+c.label+'</span></td>'
+        +'<td style="color:var(--muted);font-size:12px">'+c.mes+'</td>'
+        +'<td style="color:var(--accent);font-weight:600">'+fmt(p.monto)+'</td>'
+        +'<td style="color:var(--muted);font-size:12px">'+fmtDate(p.fecha)+'</td>'
+        +'<td>'+esBadge+'</td><td>'+compBtn+'</td>'
+        +`<td><div class="td-actions">${aprobBtn}<button class="dbtn" onclick="delPago('${p.id}')">✕</button></div></td></tr>`;
+    }).join('');
+    cont.innerHTML='<div class="ptable-wrap"><table class="ptable"><thead><tr><th>Nombre</th><th>Cuota</th><th>Mes</th><th>Monto</th><th>Fecha</th><th>Estado</th><th>Comp.</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }
+
+  // ── Tabla de quienes NO pagaron (solo si hay cuota seleccionada) ──
+  if(!cf){ faltCont.innerHTML=''; return; }
+  const cuota = CUOTAS.find(c=>c.id===cf);
+  const pagaron = new Set(PAGOS.filter(p=>p.cuotaId===cf).map(p=>p.dni));
+  let faltantes = PARTS.filter(p=>!pagaron.has(p.dni));
+  if(srch) faltantes = faltantes.filter(p=>p.nombre.toLowerCase().includes(srch)||p.dni.includes(srch));
+  faltantes.sort((a,b)=>a.nombre.localeCompare(b.nombre));
+
+  if(!faltantes.length){
+    faltCont.innerHTML=`<div class="admin-section-title" style="margin-top:8px">✅ Todos pagaron ${cuota?cuota.label:cf}</div>`;
+    return;
+  }
+  const fRows = faltantes.map(p=>
+    `<tr><td><div class="pname">${p.nombre}</div><div class="pdni">DNI ${p.dni}</div></td></tr>`
+  ).join('');
+  faltCont.innerHTML=
+    `<div class="admin-section-title" style="margin-top:8px;color:#e05555">❌ No pagaron ${cuota?cuota.label:cf} (${faltantes.length})</div>`+
+    `<div class="ptable-wrap"><table class="ptable"><thead><tr><th>Nombre / DNI</th></tr></thead><tbody>${fRows}</tbody></table></div>`;
 }
 
 async function aprobarPago(id){
@@ -1013,25 +1040,47 @@ async function saveBankData(){
 }
 
 async function doExport(){
-  if(!PAGOS.length){toast('Sin pagos para exportar','er');return;}
+  const cf = document.getElementById('srch-cuota').value;
+  const cuota = CUOTAS.find(c=>c.id===cf);
   const wb=XLSX.utils.book_new();
+
+  // Hoja 1: Pagos (filtrado por cuota si hay una seleccionada)
+  let pagosExp = [...PAGOS];
+  if(cf) pagosExp = pagosExp.filter(p=>p.cuotaId===cf);
+  if(!pagosExp.length && !cf){toast('Sin pagos para exportar','er');return;}
+
   const r1=[['Nombre','DNI','Cuota','Mes','Monto ($)','Fecha','Estado']];
-  [...PAGOS].sort((a,b)=>(b.ts||0)>(a.ts||0)?1:-1).forEach(p=>{
+  pagosExp.sort((a,b)=>(b.ts||0)>(a.ts||0)?1:-1).forEach(p=>{
     const pt=findPart(p.dni)||{nombre:'—'};
     const c=CUOTAS.find(x=>x.id===p.cuotaId)||{label:p.cuotaId,mes:''};
     r1.push([pt.nombre,p.dni,c.label,c.mes,montoReal(p.monto),fmtDate(p.fecha),p.estado==='pendiente'?'Pendiente':'Aprobado']);
   });
   const ws1=XLSX.utils.aoa_to_sheet(r1);
   ws1['!cols']=[{wch:26},{wch:13},{wch:10},{wch:14},{wch:13},{wch:14},{wch:12}];
-  XLSX.utils.book_append_sheet(wb,ws1,'Pagos');
-  const r2=[['Nombre','DNI','Seña','Cuota 1','Cuota 2','Cuota 3','Cuota 4','Cuota 5','Total','Resta']];
-  PARTS.forEach(p=>{
-    const row=[p.nombre,p.dni]; let total=0;
-    CUOTAS.forEach(c=>{const pg=PAGOS.find(x=>x.dni===p.dni&&x.cuotaId===c.id);row.push(pg?pg.monto:'');if(pg)total+=montoReal(pg.monto);});
-    row.push(total); row.push(Math.max(0,TOTAL-total)); r2.push(row);
-  });
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(r2),'Resumen');
-  XLSX.writeFile(wb,'gira_santa9nas_'+localDateStr()+'.xlsx');
+  XLSX.utils.book_append_sheet(wb,ws1, cf ? (cuota?cuota.label:'Pagos') : 'Pagos');
+
+  if(cf){
+    // Hoja 2: Quienes NO pagaron esta cuota
+    const pagaron = new Set(PAGOS.filter(p=>p.cuotaId===cf).map(p=>p.dni));
+    const faltantes = PARTS.filter(p=>!pagaron.has(p.dni)).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+    const r3=[['Nombre','DNI']];
+    faltantes.forEach(p=>r3.push([p.nombre,p.dni]));
+    const ws3=XLSX.utils.aoa_to_sheet(r3);
+    ws3['!cols']=[{wch:28},{wch:13}];
+    XLSX.utils.book_append_sheet(wb,ws3,'Pendientes');
+  } else {
+    // Sin filtro: hoja resumen general
+    const r2=[['Nombre','DNI','Seña','Cuota 1','Cuota 2','Cuota 3','Cuota 4','Cuota 5','Total','Resta']];
+    PARTS.forEach(p=>{
+      const row=[p.nombre,p.dni]; let total=0;
+      CUOTAS.forEach(c=>{const pg=PAGOS.find(x=>x.dni===p.dni&&x.cuotaId===c.id);row.push(pg?pg.monto:'');if(pg)total+=montoReal(pg.monto);});
+      row.push(total); row.push(Math.max(0,TOTAL-total)); r2.push(row);
+    });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(r2),'Resumen');
+  }
+
+  const suffix = cf ? ('_'+(cuota?cuota.label:cf).replace(/\s+/g,'_')) : '';
+  XLSX.writeFile(wb,'gira_santa9nas'+suffix+'_'+localDateStr()+'.xlsx');
   toast('✅ Excel exportado','ok');
 }
 
